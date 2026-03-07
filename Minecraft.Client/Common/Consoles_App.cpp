@@ -835,7 +835,9 @@ int CMinecraftApp::SetDefaultOptions(C_4JProfile::PROFILESETTINGS *pSettings,con
 {
 	SetGameSettings(iPad,eGameSetting_MusicVolume,DEFAULT_VOLUME_LEVEL);
 	SetGameSettings(iPad,eGameSetting_SoundFXVolume,DEFAULT_VOLUME_LEVEL);
+	SetGameSettings(iPad,eGameSetting_RenderDistance,16);
 	SetGameSettings(iPad,eGameSetting_Gamma,50);
+	SetGameSettings(iPad,eGameSetting_FOV,0);
 
 	// 4J-PB - Don't reset the difficult level if we're in-game
 	if(Minecraft::GetInstance()->level==NULL)
@@ -1329,7 +1331,9 @@ void CMinecraftApp::ApplyGameSettingsChanged(int iPad)
 {
 	ActionGameSettings(iPad,eGameSetting_MusicVolume	);
 	ActionGameSettings(iPad,eGameSetting_SoundFXVolume	);
+	ActionGameSettings(iPad,eGameSetting_RenderDistance	);
 	ActionGameSettings(iPad,eGameSetting_Gamma			);
+	ActionGameSettings(iPad,eGameSetting_FOV			);
 	ActionGameSettings(iPad,eGameSetting_Difficulty		);
 	ActionGameSettings(iPad,eGameSetting_Sensitivity_InGame	);
 	ActionGameSettings(iPad,eGameSetting_ViewBob		);
@@ -1377,6 +1381,15 @@ void CMinecraftApp::ActionGameSettings(int iPad,eGameSetting eVal)
 			pMinecraft->options->set(Options::Option::SOUND,((float)GameSettingsA[iPad]->ucSoundFXVolume)/100.0f);
 		}
 		break;
+	case eGameSetting_RenderDistance:
+		if(iPad == ProfileManager.GetPrimaryPad())
+		{
+			int dist = (GameSettingsA[iPad]->uiBitmaskValues >> 16) & 0xFF;
+
+			int level = UIScene_SettingsGraphicsMenu::DistanceToLevel(dist);
+			pMinecraft->options->set(Options::Option::RENDER_DISTANCE, 3 - level);
+		}
+		break;
 	case eGameSetting_Gamma:
 		if(iPad==ProfileManager.GetPrimaryPad())
 		{
@@ -1390,7 +1403,15 @@ void CMinecraftApp::ActionGameSettings(int iPad,eGameSetting eVal)
 		}
 
 		break;
-	case eGameSetting_Difficulty:
+	case eGameSetting_FOV:
+		if(iPad==ProfileManager.GetPrimaryPad())
+		{
+			float fovDeg = 70.0f + (float)GameSettingsA[iPad]->ucFov * 40.0f / 100.0f;
+			pMinecraft->gameRenderer->SetFovVal(fovDeg);
+			pMinecraft->options->set(Options::Option::FOV, (float)GameSettingsA[iPad]->ucFov / 100.0f);
+		}
+		break;
+	case eGameSetting_Difficulty:		
 		if(iPad==ProfileManager.GetPrimaryPad())
 		{
 			pMinecraft->options->toggle(Options::Option::DIFFICULTY,GameSettingsA[iPad]->usBitmaskValues&0x03);
@@ -1838,6 +1859,17 @@ void CMinecraftApp::SetGameSettings(int iPad,eGameSetting eVal,unsigned char ucV
 			GameSettingsA[iPad]->bSettingsChanged=true;
 		}
 		break;
+	case eGameSetting_RenderDistance:
+		{
+			unsigned int val = ucVal & 0xFF;
+
+			GameSettingsA[iPad]->uiBitmaskValues &= ~(0xFF << 16);
+			GameSettingsA[iPad]->uiBitmaskValues |= val << 16;
+			if(iPad == ProfileManager.GetPrimaryPad())
+				ActionGameSettings(iPad,eVal);
+			GameSettingsA[iPad]->bSettingsChanged = true;
+		}
+		break;
 	case eGameSetting_Gamma:
 		if(GameSettingsA[iPad]->ucGamma!=ucVal)
 		{
@@ -1849,7 +1881,18 @@ void CMinecraftApp::SetGameSettings(int iPad,eGameSetting eVal,unsigned char ucV
 			GameSettingsA[iPad]->bSettingsChanged=true;
 		}
 		break;
-	case eGameSetting_Difficulty:
+	case eGameSetting_FOV:
+		if(GameSettingsA[iPad]->ucFov!=ucVal)
+		{
+			GameSettingsA[iPad]->ucFov=ucVal;
+			if(iPad==ProfileManager.GetPrimaryPad())
+			{
+				ActionGameSettings(iPad,eVal);
+			}
+			GameSettingsA[iPad]->bSettingsChanged=true;
+		}
+		break;
+	case eGameSetting_Difficulty:		
 		if((GameSettingsA[iPad]->usBitmaskValues&0x03)!=(ucVal&0x03))
 		{
 			GameSettingsA[iPad]->usBitmaskValues&=~0x03;
@@ -2286,10 +2329,20 @@ unsigned char CMinecraftApp::GetGameSettings(int iPad,eGameSetting eVal)
 	case eGameSetting_SoundFXVolume:
 		return GameSettingsA[iPad]->ucSoundFXVolume;
 		break;
+	case eGameSetting_RenderDistance:
+		{
+		int val = (GameSettingsA[iPad]->uiBitmaskValues >> 16) & 0xFF;
+		if(val == 0) return val = 16; //brain
+		return val;
+		break;
+		}
 	case eGameSetting_Gamma:
 		return GameSettingsA[iPad]->ucGamma;
 		break;
-	case eGameSetting_Difficulty:
+	case eGameSetting_FOV:
+		return GameSettingsA[iPad]->ucFov;
+		break;
+	case eGameSetting_Difficulty:		
 		return GameSettingsA[iPad]->usBitmaskValues&0x0003;
 		break;
 	case eGameSetting_Sensitivity_InGame:
