@@ -1120,6 +1120,16 @@ static int RunHeadlessServer()
 	if (worldSizeSetting > 3) worldSizeSetting = 3;
 	app.SetGameHostOption(eGameHostOption_WorldSize, worldSizeSetting + 1);
 
+	// Save name — defaults to "server", configurable via level-name in server.properties
+    wstring levelNameW = serverSettings.getString(L"level-name", L"server");
+    if (levelNameW.empty()) levelNameW = L"server";
+    char levelNameA[256] = {};
+    WideCharToMultiByte(CP_ACP, 0, levelNameW.c_str(), -1, levelNameA, sizeof(levelNameA), NULL, NULL);
+    // Tell StorageManager where to save — creates GameHDD/{name}/saveData.ms
+    StorageManager.ResetSaveData();
+    StorageManager.SetSaveTitle(levelNameW.c_str());
+    StorageManager.SetSaveUniqueFilename(levelNameA);
+
 	MinecraftServer::resetFlags();
 	g_NetworkManager.HostGame(0, false, true, MINECRAFT_NET_MAX_PLAYERS, 0);
 
@@ -1134,6 +1144,7 @@ static int RunHeadlessServer()
 	NetworkGameInitData* param = new NetworkGameInitData();
 	param->seed = 0;
 	param->settings = app.GetGameHostOption(eGameHostOption_All);
+	param->levelName = levelNameW;
 
 	switch (worldSizeSetting)
 	{
@@ -1141,6 +1152,38 @@ static int RunHeadlessServer()
 	case 1: param->xzSize = LEVEL_WIDTH_SMALL;   param->hellScale = HELL_LEVEL_SCALE_SMALL;   break;
 	case 2: param->xzSize = LEVEL_WIDTH_MEDIUM;  param->hellScale = HELL_LEVEL_SCALE_MEDIUM;  break;
 	case 3: param->xzSize = LEVEL_WIDTH_LARGE;   param->hellScale = HELL_LEVEL_SCALE_LARGE;   break;
+	}
+
+		// Try to load existing save from Windows64/GameHDD/{name}/saveData.ms
+	{
+		char savePath[MAX_PATH];
+		sprintf_s(savePath, "Windows64\\GameHDD\\%s\\saveData.ms", levelNameA);
+		HANDLE hFile = CreateFileA(savePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+		if (hFile != INVALID_HANDLE_VALUE)
+		{
+			LARGE_INTEGER fileSize;
+			GetFileSizeEx(hFile, &fileSize);
+			if (fileSize.QuadPart > 0 && fileSize.QuadPart < 256 * 1024 * 1024)
+			{
+				LPVOID saveBuffer = new unsigned char[(size_t)fileSize.QuadPart];
+				DWORD bytesRead = 0;
+				if (ReadFile(hFile, saveBuffer, (DWORD)fileSize.QuadPart, &bytesRead, NULL) && bytesRead == fileSize.QuadPart)
+				{
+					param->saveData = new LoadSaveDataThreadParam(saveBuffer, fileSize.QuadPart, levelNameW);
+					printf("Loading save '%s' (%lld bytes)\n", levelNameA, fileSize.QuadPart);
+				}
+				else
+				{
+					delete[] (unsigned char*)saveBuffer;
+					printf("Failed to read save file, creating new world.\n");
+				}
+			}
+			CloseHandle(hFile);
+		}
+		else
+		{
+			printf("No existing save found at %s, creating new world.\n", savePath);
+		}
 	}
 
 	g_NetworkManager.ServerStoppedCreate(true);
