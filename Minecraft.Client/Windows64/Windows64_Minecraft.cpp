@@ -579,8 +579,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_KEYDOWN:
 	case WM_SYSKEYDOWN:
 	{
-		int vk = (int)wParam;
-		if (lParam & 0x40000000) break; // ignore auto-repeat
 		int vk = static_cast<int>(wParam);
 		if ((lParam & 0x40000000) && vk != VK_LEFT && vk != VK_RIGHT && vk != VK_BACK)
 			break;
