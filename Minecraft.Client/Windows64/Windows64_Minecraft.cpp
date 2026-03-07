@@ -1143,6 +1143,24 @@ static int RunHeadlessServer()
 
 	NetworkGameInitData* param = new NetworkGameInitData();
 	param->seed = 0;
+	param->findSeed = true;
+
+	wstring seedStr = serverSettings.getString(L"seed", L"");
+	if (!seedStr.empty())
+	{
+		__int64 configSeed = _wtoi64(seedStr.c_str());
+		if (configSeed != 0)
+		{
+			param->seed = configSeed;
+			param->findSeed = false;
+			printf("Using configured seed: %lld\n", configSeed);
+		}
+	}
+
+	if (param->findSeed)
+	{
+		printf("No seed configured, generating random world.\n");
+	}
 	param->settings = app.GetGameHostOption(eGameHostOption_All);
 	param->levelName = levelNameW;
 
