@@ -42,8 +42,9 @@
 #include "..\..\Minecraft.World\compression.h"
 #include "..\..\Minecraft.World\OldChunkStorage.h"
 #include "Common/PostProcesser.h"
+#include "..\GameRenderer.h"
 #include "Network\WinsockNetLayer.h"
-
+#include "ChatScreen.h"
 #include "Xbox/resource.h"
 
 #ifdef _MSC_VER
@@ -580,6 +581,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		int vk = (int)wParam;
 		if (lParam & 0x40000000) break; // ignore auto-repeat
+		int vk = static_cast<int>(wParam);
+		if ((lParam & 0x40000000) && vk != VK_LEFT && vk != VK_RIGHT && vk != VK_BACK)
+			break;
+#ifdef _WINDOWS64
+		Minecraft* pm = Minecraft::GetInstance();
+		ChatScreen* chat = pm && pm->screen ? dynamic_cast<ChatScreen*>(pm->screen) : nullptr;
+		if (chat)
+		{
+			if (vk == 'V' && (GetKeyState(VK_CONTROL) & 0x8000))
+				{ chat->handlePasteRequest(); break; }
+			if ((vk == VK_UP || vk == VK_DOWN) && !(lParam & 0x40000000))
+				{ if (vk == VK_UP) chat->handleHistoryUp(); else chat->handleHistoryDown(); break; }
+			if (vk >= '1' && vk <= '9') // Prevent hotkey conflicts
+				break;
+			if (vk == VK_SHIFT)
+				break;
+		}
+#endif
 		if (vk == VK_SHIFT)
 			vk = (MapVirtualKey((lParam >> 16) & 0xFF, MAPVK_VSC_TO_VK_EX) == VK_RSHIFT) ? VK_RSHIFT : VK_LSHIFT;
 		else if (vk == VK_CONTROL)
@@ -1524,6 +1543,9 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 #endif
 		ui.tick();
 		ui.render();
+
+		pMinecraft->gameRenderer->ApplyGammaPostProcess();
+
 #if 0
 		app.HandleButtonPresses();
 
