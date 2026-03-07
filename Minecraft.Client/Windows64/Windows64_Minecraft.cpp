@@ -587,7 +587,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		else if (vk == VK_MENU)
 			vk = (lParam & (1 << 24)) ? VK_RMENU : VK_LMENU;
 		g_KBMInput.OnKeyDown(vk);
-		return DefWindowProc(hWnd, message, wParam, lParam);
+		break;
 	}
 	case WM_KEYUP:
 	case WM_SYSKEYUP:
@@ -1186,7 +1186,7 @@ static int RunHeadlessServer()
 		PlayerList* pl = shutdownServer->getPlayers();
 		if (pl != NULL)
 			pl->saveAll(NULL, false);
-		shutdownServer->saveAllChunks();
+		shutdownServer->saveWorldToDisk();
 		printf("World saved.\n");
 		fflush(stdout);
 	}
